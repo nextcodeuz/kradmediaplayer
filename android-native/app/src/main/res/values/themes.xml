@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Forced dark, like Expo userInterfaceStyle: "dark". -->
+    <style name="Theme.KradusMedia" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#14171B</item>
+        <item name="android:statusBarColor">#14171B</item>
+        <item name="android:navigationBarColor">#14171B</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

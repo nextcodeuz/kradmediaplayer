@@ -1,0 +1,13 @@
+# Local machine paths (Android SDK location) — never commit.
+local.properties
+
+# Gradle + build outputs (fully regenerable).
+.gradle/
+build/
+app/build/
+app/.cxx/
+
+# IDE.
+*.iml
+.idea/
+.DS_Store
