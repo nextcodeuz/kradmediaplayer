@@ -188,11 +188,13 @@ fun KradusSlider(
     value: Float,
     max: Float,
     onChange: (Float) -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    onDone: (() -> Unit)? = null
 ) {
     Slider(
         value = value.coerceIn(0f, max.coerceAtLeast(0.001f)),
         onValueChange = onChange,
+        onValueChangeFinished = onDone,
         valueRange = 0f..max.coerceAtLeast(0.001f),
         enabled = enabled,
         colors = SliderDefaults.colors(
@@ -205,15 +207,25 @@ fun KradusSlider(
 
 @Composable
 fun ProgressBar(valueSec: Long, maxSec: Long, onSeek: (Long) -> Unit, enabled: Boolean = true) {
+    // While the finger is down, show the dragged position instead of the
+    // polled one — otherwise the 1 Hz updates snap the thumb back every
+    // second and seeking feels frozen. The seek itself fires once on release,
+    // sparing the player a storm of re-buffers on weak phones.
+    var drag by remember { mutableStateOf<Float?>(null) }
+    val shown = drag?.toLong() ?: valueSec
     Column {
         KradusSlider(
-            value = valueSec.toFloat(),
+            value = shown.toFloat(),
             max = maxSec.coerceAtLeast(1).toFloat(),
-            onChange = { onSeek(it.toLong()) },
-            enabled = enabled && maxSec > 0
+            onChange = { if (enabled && maxSec > 0) drag = it },
+            enabled = enabled && maxSec > 0,
+            onDone = {
+                drag?.let { onSeek(it.toLong()) }
+                drag = null
+            }
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(formatTime(valueSec), color = C.muted, fontSize = 11.sp)
+            Text(formatTime(shown), color = C.muted, fontSize = 11.sp)
             Text(formatTime(maxSec), color = C.muted, fontSize = 11.sp)
         }
     }

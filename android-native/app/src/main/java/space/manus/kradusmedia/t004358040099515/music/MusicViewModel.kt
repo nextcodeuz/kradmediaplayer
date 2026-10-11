@@ -714,8 +714,10 @@ class MusicViewModel(app: Application) : AndroidViewModel(app) {
         _queueIds.value = _queueIds.value.filter { it != id }
         // Only our own private copies need file cleanup; shared MediaStore
         // tracks (content://) and streams must never raise a scary error here.
-        if (removed.source == TrackSource.DEVICE && store.isManagedAudioFile(removed.uri)) {
-            viewModelScope.launch {
+        // File IO (incl. the canonical-path check) runs off the main thread.
+        if (removed.source == TrackSource.DEVICE) {
+            viewModelScope.launch(Dispatchers.IO) {
+                if (!store.isManagedAudioFile(removed.uri)) return@launch
                 val ok = store.deleteManagedAudioFile(removed.uri)
                 if (!ok) _importError.value =
                     "Trek ro'yxatdan o'chirildi, lekin uning mahalliy faylini tozalab bo'lmadi."

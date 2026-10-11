@@ -1,6 +1,14 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     kotlin("android")
+}
+
+// Release kaliti (ixtiyoriy): app/keystore.properties bo'lsa o'qiladi.
+val keystoreProps = Properties().apply {
+    val f = file("keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
 }
 
 android {
@@ -38,8 +46,25 @@ android {
     }
     ndkVersion = "27.0.12077973"
 
+    // Optional release signing: copy app/keystore.properties.example to
+    // app/keystore.properties (gitignored) and fill it in. Without it,
+    // assembleRelease still builds, but the APK stays unsigned.
+    signingConfigs {
+        create("release") {
+            if (keystoreProps.containsKey("storeFile")) {
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (keystoreProps.containsKey("storeFile")) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

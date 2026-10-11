@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -71,6 +72,7 @@ fun ListenScreen(
     val folders by vm.folders.collectAsState()
     val currentId by vm.currentTrackId.collectAsState()
     val playing by vm.playing.collectAsState()
+    val buffering by vm.buffering.collectAsState()
     val positionMs by vm.positionMs.collectAsState()
     val durationMs by vm.durationMs.collectAsState()
     val volume by vm.volume.collectAsState()
@@ -191,10 +193,18 @@ fun ListenScreen(
                     onClick = { if (current != null) vm.togglePlayback() else onOpenLibrary() },
                     modifier = Modifier.size(56.dp).clip(CircleShape).background(C.blue)
                 ) {
-                    Icon(
-                        if (current != null && playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(28.dp)
-                    )
+                    if (buffering && current != null) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(26.dp),
+                            color = androidx.compose.ui.graphics.Color.White,
+                            strokeWidth = 3.dp
+                        )
+                    } else {
+                        Icon(
+                            if (current != null && playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                            null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
                 Spacer(Modifier.size(24.dp))
                 IconButton(onClick = vm::playNext) {

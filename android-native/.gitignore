@@ -1,6 +1,11 @@
 # Local machine paths (Android SDK location) — never commit.
 local.properties
 
+# Release signing secrets — never commit.
+keystore.properties
+*.jks
+*.keystore
+
 # Gradle + build outputs (fully regenerable).
 .gradle/
 build/

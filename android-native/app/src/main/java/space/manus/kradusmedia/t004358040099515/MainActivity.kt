@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -238,6 +239,7 @@ private fun KradusRoot(vm: MusicViewModel, onPickDevice: () -> Unit, onScanLibra
     val tracks by vm.tracks.collectAsState()
     val currentId by vm.currentTrackId.collectAsState()
     val playing by vm.playing.collectAsState()
+    val buffering by vm.buffering.collectAsState()
     val current = remember(tracks, currentId) { tracks.firstOrNull { it.id == currentId } }
 
     Scaffold(
@@ -271,11 +273,21 @@ private fun KradusRoot(vm: MusicViewModel, onPickDevice: () -> Unit, onScanLibra
                                 onClick = vm::togglePlayback,
                                 modifier = Modifier.size(42.dp).clip(CircleShape).background(C.surface2)
                             ) {
-                                Icon(
-                                    if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                    if (playing) "Pauza" else "Ijro etish",
-                                    tint = C.text
-                                )
+                                // Buffering feedback: on slow networks the player can take
+                                // seconds to start — a spinner says "working", not "frozen".
+                                if (buffering) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = C.text,
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Icon(
+                                        if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                        if (playing) "Pauza" else "Ijro etish",
+                                        tint = C.text
+                                    )
+                                }
                             }
                         }
                     }

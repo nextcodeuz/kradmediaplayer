@@ -1,15 +1,11 @@
 package space.manus.kradusmedia.t004358040099515.music
 
-import android.content.ContentUris
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
-import android.provider.MediaStore
 import androidx.core.content.ContextCompat
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -39,18 +35,19 @@ fun isAllFilesGranted(context: Context): Boolean {
 }
 
 suspend fun scanDeviceFiles(context: Context): List<ScannedAudio> = withContext(Dispatchers.IO) {
-    val media = scanAllAudio(context)
-    val out = ArrayList(media)
+    // One MediaStore pass gives both the tracks and the path index (no second
+    // full-device query).
+    val scan = scanAllAudio(context)
+    val out = ArrayList(scan.items)
     val knownUris = out.map { it.uri }.toHashSet()
     if (!isAllFilesGranted(context)) return@withContext out
 
     // Path -> MediaStore entry (for content uri + art reuse and meta).
-    val pathIndex = buildPathIndex(context)
-    val byUri = media.associateBy { it.uri }
+    val byUri = scan.items.associateBy { it.uri }
 
     val foundPaths = scanMp3Files(context)
     for (path in foundPaths) {
-        val indexed = pathIndex[path]
+        val indexed = scan.pathIndex[path]
         if (indexed != null) {
             val entry = byUri[indexed]
             if (entry != null && knownUris.add(entry.uri)) out.add(entry)
@@ -72,36 +69,6 @@ suspend fun scanDeviceFiles(context: Context): List<ScannedAudio> = withContext(
     out.sortByDescending { it.dateAdded }
     out
 }
-
-/** Absolute path -> content uri for every indexed audio file. */
-private fun buildPathIndex(context: Context): Map<String, String> {
-    val map = HashMap<String, String>(4096)
-    val collection = audioCollection()
-    val projection = arrayOf(
-        MediaStore.Audio.Media.DATA,
-        MediaStore.Audio.Media._ID
-    )
-    try {
-        context.contentResolver.query(collection, projection, null, null, null)?.use { c ->
-            val iData = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-            val iId = c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            while (c.moveToNext()) {
-                val data = c.getString(iData) ?: continue
-                val id = c.getLong(iId)
-                map[data] = ContentUris.withAppendedId(collection, id).toString()
-            }
-        }
-    } catch (_: Exception) {
-    }
-    return map
-}
-
-private fun audioCollection(): Uri =
-    if (Build.VERSION.SDK_INT >= 29) {
-        MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-    } else {
-        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-    }
 
 /** Standard music locations on internal + removable storage. */
 private val SCAN_DIR_NAMES = listOf(
@@ -198,12 +165,171 @@ private fun isSymlink(file: File): Boolean {
     }
 }
 
-private fun parseFoundJson(json: String): List<String> {
+/**
+ * Hand parser for the native scan output [{"p":path,"s":size},...].
+ *
+ * The shape is fixed and machine-written, so a tiny scanner replaces the
+ * Gson List<Map<String,Any?>> tree — which ballooned into tens of MB of
+ * LinkedTreeMap/Double nodes on 60k-file scans and invited the low-memory
+ * killer on weak phones. Returns paths only; sizes are informational.
+ * Empty list on any malformed input.
+ */
+internal fun parseFoundJson(json: String): List<String> {
     return try {
-        val type = object : TypeToken<List<Map<String, Any?>>>() {}.type
-        val list: List<Map<String, Any?>> = Gson().fromJson(json, type) ?: return emptyList()
-        list.mapNotNull { it["p"] as? String }
+        FoundParser(json).parse()
     } catch (_: Exception) {
         emptyList()
+    }
+}
+
+private class FoundParser(private val s: String) {
+    private var i = 0
+
+    fun parse(): List<String> {
+        val out = ArrayList<String>()
+        ws()
+        expect('[')
+        ws()
+        if (peek() == ']') {
+            i++
+            end()
+            return out
+        }
+        while (true) {
+            ws()
+            expect('{')
+            var path: String? = null
+            while (true) {
+                ws()
+                if (parseString() == "p") path = parseStringAfterColon() else skipValueAfterColon()
+                ws()
+                when (peek()) {
+                    ',' -> { i++; continue }
+                    '}' -> { i++; break }
+                    else -> throw IllegalArgumentException("bad object")
+                }
+            }
+            if (path != null) out.add(path)
+            ws()
+            when (peek()) {
+                ',' -> { i++; continue }
+                ']' -> {
+                    i++
+                    end()
+                    return out
+                }
+                else -> throw IllegalArgumentException("bad array")
+            }
+        }
+    }
+
+    /** Only whitespace may follow the array (Gson parity: trailing junk fails). */
+    private fun end() {
+        ws()
+        if (i != s.length) throw IllegalArgumentException("trailing data")
+    }
+
+    private fun parseStringAfterColon(): String {
+        ws()
+        expect(':')
+        ws()
+        return parseString()
+    }
+
+    private fun skipValueAfterColon() {
+        ws()
+        expect(':')
+        ws()
+        skipValue()
+    }
+
+    private fun parseString(): String {
+        expect('"')
+        val sb = StringBuilder()
+        while (true) {
+            if (i >= s.length) throw IllegalArgumentException("open string")
+            val c = s[i++]
+            when (c) {
+                '"' -> return sb.toString()
+                '\\' -> {
+                    if (i >= s.length) throw IllegalArgumentException("open escape")
+                    when (val e = s[i++]) {
+                        '"', '\\', '/' -> sb.append(e)
+                        'b' -> sb.append('\b')
+                        'f' -> sb.append(12.toChar()) // formfeed
+                        'n' -> sb.append('\n')
+                        'r' -> sb.append('\r')
+                        't' -> sb.append('\t')
+                        'u' -> {
+                            if (i + 4 > s.length) throw IllegalArgumentException("open unicode")
+                            var cp = s.substring(i, i + 4).toInt(16)
+                            i += 4
+                            if (cp in 0xD800..0xDBFF) {
+                                if (i + 6 > s.length || s[i] != '\\' || s[i + 1] != 'u')
+                                    throw IllegalArgumentException("lone surrogate")
+                                i += 2
+                                val lo = s.substring(i, i + 4).toInt(16)
+                                i += 4
+                                cp = 0x10000 + ((cp - 0xD800) shl 10) + (lo - 0xDC00)
+                            }
+                            sb.appendCodePoint(cp)
+                        }
+                        else -> throw IllegalArgumentException("bad escape")
+                    }
+                }
+                else -> {
+                    if (c < ' ') throw IllegalArgumentException("raw control")
+                    sb.append(c)
+                }
+            }
+        }
+    }
+
+    private fun skipValue() {
+        when (val c = peek()) {
+            '"' -> parseString()
+            't' -> expectLit("true")
+            'f' -> expectLit("false")
+            'n' -> expectLit("null")
+            '-', in '0'..'9' -> skipNumber()
+            else -> throw IllegalArgumentException("bad value")
+        }
+    }
+
+    private fun skipNumber() {
+        if (peek() == '-') i++
+        while (i < s.length && s[i] in '0'..'9') i++
+        if (i < s.length && s[i] == '.') {
+            i++
+            while (i < s.length && s[i] in '0'..'9') i++
+        }
+        if (i < s.length && (s[i] == 'e' || s[i] == 'E')) {
+            i++
+            if (i < s.length && (s[i] == '+' || s[i] == '-')) i++
+            while (i < s.length && s[i] in '0'..'9') i++
+        }
+    }
+
+    private fun expectLit(lit: String) {
+        if (!s.startsWith(lit, i)) throw IllegalArgumentException("bad literal")
+        i += lit.length
+    }
+
+    private fun ws() {
+        while (i < s.length) {
+            val c = s[i]
+            if (c != ' ' && c != '\t' && c != '\n' && c != '\r') break
+            i++
+        }
+    }
+
+    private fun peek(): Char {
+        if (i >= s.length) throw IllegalArgumentException("open input")
+        return s[i]
+    }
+
+    private fun expect(c: Char) {
+        if (i >= s.length || s[i] != c) throw IllegalArgumentException("expected $c")
+        i++
     }
 }
