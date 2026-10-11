@@ -14,6 +14,7 @@ Oddiy boshqaruv. Tartibli kutubxona. **Barcha musiqa va sozlamalar faqat qurilma
 
 - [Xususiyatlar](#xususiyatlar)
 - [Ekranlar](#ekranlar)
+- [Skrinshotlar](#skrinshotlar)
 - [Texnologiyalar](#texnologiyalar)
 - [Tezlik sirlari (optimallashtirish)](#tezlik-sirlari-optimallashtirish)
 - [Loyihani yig‘ish](#loyihani-yigish)
@@ -43,7 +44,22 @@ Oddiy boshqaruv. Tartibli kutubxona. **Barcha musiqa va sozlamalar faqat qurilma
 
 Qo‘shimcha: **Papkalar** (kartalar + papka ichi ko‘rinishi), **Sevimlilar**, **Ilova haqida** (muallif havolasi bilan) muloqotlari.
 
-> Skrinshotlar `screenshots/` papkasiga qo‘shiladi.
+## Skrinshotlar
+
+Rasmni bosing — to‘liq o‘lchamda ochiladi.
+
+| Tinglash | Kutubxona |
+|:---:|:---:|
+| <a href="screenshots/listen.jpg"><img src="screenshots/listen.jpg" width="270" alt="Tinglash ekrani" /></a> | <a href="screenshots/library.jpg"><img src="screenshots/library.jpg" width="270" alt="Kutubxona ekrani — qidiruv va treklar" /></a> |
+
+| Papkalar | Sevimlilar |
+|:---:|:---:|
+| <a href="screenshots/folders.jpg"><img src="screenshots/folders.jpg" width="270" alt="Papkalar ekrani" /></a> | <a href="screenshots/favorites.jpg"><img src="screenshots/favorites.jpg" width="270" alt="Sevimlilar ekrani" /></a> |
+
+<p align="center">
+  <a href="screenshots/listen-player.jpg"><img src="screenshots/listen-player.jpg" width="270" alt="Ijro kartasi va ovoz" /></a><br />
+  <em>Tinglash — ijro kartasi va ovoz boshqaruvi</em>
+</p>
 
 ## Texnologiyalar
 
