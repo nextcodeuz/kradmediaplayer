@@ -56,6 +56,26 @@ class LibraryModelTest {
     }
 
     @Test
+    fun upgradesLegacyCurlyApostropheInternetFolderByNameWithoutDuplicating() {
+        // Pre-fix regression: C++ used U+2019 while Kotlin used U+0027, so a
+        // name-matched legacy folder was never found and a duplicate spawned.
+        val legacyName = "Internetdan qo\u2019shilganlar"
+        val snapshot = normalizeLibrarySnapshot(
+            mapOf(
+                "tracks" to listOf(oldUrlTrack(extra = mapOf("folderId" to "f-internet"))),
+                "folders" to listOf(
+                    mapOf("id" to "f-internet", "name" to legacyName, "color" to "#4D6784",
+                        "createdAt" to 1, "kind" to null)
+                )
+            )
+        )
+        val internet = snapshot.folders.filter { it.isInternet }
+        assertEquals(1, internet.size)
+        assertEquals("f-internet", internet[0].id)
+        assertEquals("f-internet", snapshot.tracks[0].folderId)
+    }
+
+    @Test
     fun preservesUrlTrackMovedToNormalFolderAndKeepsDefaultFolder() {
         val snapshot = normalizeLibrarySnapshot(
             mapOf(

@@ -42,8 +42,15 @@
 
 namespace kradus {
 
-static const char* kInternetFolderName = "Internetdan qo\xE2\x80\x99shilganlar";  // ’ = U+2019
-static const char* kInternetFolderNameLower = "internetdan qo\xE2\x80\x99shilganlar";
+// Must stay byte-identical to Models.kt INTERNET_FOLDER_NAME ("Internetdan
+// qo'shilganlar", ASCII apostrophe U+0027). A curly ’ (U+2019) here would
+// break the migration name-match and spawn a duplicate folder every launch.
+static const char* kInternetFolderName = "Internetdan qo'shilganlar";
+static const char* kInternetFolderNameLower = "internetdan qo'shilganlar";
+// Legacy documents may carry the same folder name with a curly apostrophe
+// (’ = U+2019, as written in older docs/UI strings). Match it too during
+// migration so such folders are upgraded in place instead of duplicated.
+static const char* kInternetFolderNameLegacyLower = "internetdan qo\xE2\x80\x99shilganlar";
 static const char* kInternetFolderColor = "#4D6784";
 static const int kSchemaVersion = 2;
 // Artist fallback — must stay identical to Models.kt ("Noma'lum ijrochi", ASCII apostrophe).
@@ -512,7 +519,8 @@ static bool normalizeDoc(const JVal& root, std::string& outJson) {
     }
     if (internetIdx < 0) {
         for (size_t i = 0; i < folders.size(); ++i) {
-            if (asciiLower(folders[i].name) == kInternetFolderNameLower) {
+            std::string lname = asciiLower(folders[i].name);
+            if (lname == kInternetFolderNameLower || lname == kInternetFolderNameLegacyLower) {
                 folders[i].internet = true;
                 internetIdx = (int)i;
                 break;

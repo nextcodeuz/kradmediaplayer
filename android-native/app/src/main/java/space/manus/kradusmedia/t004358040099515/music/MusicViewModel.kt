@@ -563,7 +563,10 @@ class MusicViewModel(app: Application) : AndroidViewModel(app) {
     private fun ensureInternetFolder(): MusicFolder {
         val current = _folders.value
         val existing = current.firstOrNull { it.isInternet }
-            ?: current.firstOrNull { it.name.lowercase() == INTERNET_FOLDER_NAME.lowercase() }
+            ?: current.firstOrNull {
+                val n = it.name.lowercase()
+                n == INTERNET_FOLDER_NAME.lowercase() || n == INTERNET_FOLDER_NAME_LEGACY.lowercase()
+            }
         if (existing != null) {
             if (!existing.isInternet) {
                 val upgraded = existing.copy(isInternet = true)

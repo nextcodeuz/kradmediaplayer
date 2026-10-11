@@ -60,6 +60,9 @@ data class TrackPatch(
 )
 
 const val INTERNET_FOLDER_NAME = "Internetdan qo'shilganlar"
+// Legacy persisted docs may carry the same name with a curly apostrophe (U+2019);
+// match it too so old internet folders are upgraded in place instead of duplicated.
+internal val INTERNET_FOLDER_NAME_LEGACY = "Internetdan qo\u2019shilganlar"
 const val INTERNET_FOLDER_COLOR = "#4D6784"
 const val SCHEMA_VERSION = 2
 const val DEMO_URL = "https://samplelib.com/mp3/sample-50s.mp3"
@@ -175,7 +178,10 @@ fun normalizeLibrarySnapshot(input: Any?): LibrarySnapshot {
         .filter { t -> if (seenTrackIds.contains(t.id)) false else { seenTrackIds.add(t.id); true } }
 
     var internetFolder = folders.firstOrNull { it.isInternet }
-        ?: folders.firstOrNull { it.name.lowercase() == INTERNET_FOLDER_NAME.lowercase() }
+        ?: folders.firstOrNull {
+            val n = it.name.lowercase()
+            n == INTERNET_FOLDER_NAME.lowercase() || n == INTERNET_FOLDER_NAME_LEGACY.lowercase()
+        }
     val hasUrlTracks = tracks.any { it.source == TrackSource.URL }
     if (internetFolder == null && hasUrlTracks) {
         internetFolder = makeInternetFolder(folders)
